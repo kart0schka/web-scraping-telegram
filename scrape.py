@@ -1,6 +1,7 @@
 # pip3 install virtualenv
 # python3 -m venv venv
-# . ./venv/bin/activate
+# . ./venv/bin/
+# for windows users: venv\Scripts\activate
 # pip install telethon pandas openpyxl
 # pip install pyarrow  # For Parquet support
 # pip install fastparquet  # For Parquet support
@@ -31,22 +32,13 @@ channels = [channel.strip() for channel in channels.split(",")]
 
 # @markdown **2.2.** Here you can select the `time window` you would like to extract data from the listed communities:
 date_min = '2025-01-20' # @param {type:"date"}
-date_max = '2025-04-20' # @param {type:"date"}
+date_max = '2025-04-30' # @param {type:"date"}
 
 date_min = datetime.fromisoformat(date_min).replace(tzinfo=timezone.utc)
 date_max = datetime.fromisoformat(date_max).replace(tzinfo=timezone.utc)
 
-# @markdown **2.3.** Choose a `name` for the final file you want to download as output:
-file_name = 'XXX' # @param {type:"string"}
-
 # @markdown **2.4.** `Keyword` to search, **leave empty if you want to extract all messages from the channel(s):**
 key_search = '' # @param {type:"string"}
-
-# @markdown **2.5.** **Maximum** `number of messages` to scrape (only use if you want a specific limit, otherwise leave a high number to scrape everything):
-max_t_index = 1000000   # @param {type:"integer"}
-
-# @markdown **2.6.** `Timeout in seconds` (never leave it longer than 6 hours, that is 21600 seconds, as Google Colab deactivates itself after that time):
-time_limit = 21600 # @param {type:"integer"}
 
 # @markdown **2.7.** Choose the format of the final file you want to download. If you are a first-time user, choose `Excel`. If you have advanced skills, you can use `Parquet`:
 File = 'parquet' # @param ["excel", "parquet"]
@@ -83,7 +75,7 @@ def print_progress(t_index, message_id, start_time, max_t_index):
 
     print(f'Progress: {percentage:.2f}% | Elapsed Time: {elapsed_time_str} | Remaining Time: {remaining_time_str}')
 
-async def scrape(file_format, channels, date_min, date_max, key_search, max_t_index, time_limit, t_index, start_time, data):
+async def scrape(file_format, channels, date_min, date_max, key_search, start_time):
     # Normalize File variable to avoid issues
     file_format = re.sub(r'[^a-z]', '', file_format.lower())  # Converts to lowercase and removes non-alphabetic characters
     print(f'Username: {username}')
@@ -97,14 +89,9 @@ async def scrape(file_format, channels, date_min, date_max, key_search, max_t_in
     for channel in channels:
         print(f'\n\n{"-" * 50}\n#Scraping {channel}...\n{"-" * 50}\n')
 
-        if t_index >= max_t_index:
-            break
-
-        if time.time() - start_time > time_limit:
-            break
-
         loop_start_time = time.time()
-
+        data = []  # Reset data for each channel
+        t_index = 0  # Tracker for the number of messages processed
         try:
             c_index = 0
             async with TelegramClient(username, api_id, api_hash) as client:
@@ -182,26 +169,12 @@ async def scrape(file_format, channels, date_min, date_max, key_search, max_t_in
 
                             # Print progress
                             print(f'{"-" * 80}')
-                            print_progress(t_index, message.id, start_time, max_t_index)
-                            current_max_id = min(c_index + message.id, max_t_index)
+                            # print_progress(t_index, message.id, start_time, max_t_index)
+                            current_max_id = c_index + message.id
                             print(f'From {channel}: {c_index:05} contents of {current_max_id:05}')
                             print(f'Id: {message.id:05} / Date: {date_time}')
                             print(f'Total: {t_index:05} contents until now')
                             print(f'{"-" * 80}\n\n')
-
-                            if t_index % 1000 == 0:
-                                if file_format == 'parquet':
-                                    backup_filename = f'backup_{file_name}_until_{t_index:05}_{channel}_ID{message.id:07}.parquet'
-                                    pd.DataFrame(data).to_parquet(backup_filename, index=False)
-                                elif file_format == 'excel':
-                                    backup_filename = f'backup_{file_name}_until_{t_index:05}_{channel}_ID{message.id:07}.xlsx'
-                                    pd.DataFrame(data).to_excel(backup_filename, index=False, engine='openpyxl')
-
-                            if t_index >= max_t_index:
-                                break
-
-                            if time.time() - start_time > time_limit:
-                                break
 
                         elif message.date < date_min:
                             break
@@ -213,10 +186,10 @@ async def scrape(file_format, channels, date_min, date_max, key_search, max_t_in
 
             df = pd.DataFrame(data)
             if file_format == 'parquet':
-                partial_filename = f'complete_{channel}_in_{file_name}_until_{t_index:05}.parquet'
+                partial_filename = f'complete_{channel}_in_{t_index}.parquet'
                 df.to_parquet(partial_filename, index=False)
             elif file_format == 'excel':
-                partial_filename = f'complete_{channel}_in_{file_name}_until_{t_index:05}.xlsx'
+                partial_filename = f'complete_{channel}_in_{t_index}.xlsx'
                 df.to_excel(partial_filename, index=False, engine='openpyxl')
             # files.download(partial_filename)
 
@@ -229,18 +202,16 @@ async def scrape(file_format, channels, date_min, date_max, key_search, max_t_in
         if loop_duration < 60:
             time.sleep(60 - loop_duration)
 
-    print(f'\n{"-" * 50}\n#Concluded! #{t_index:05} posts were scraped!\n{"-" * 50}\n\n\n\n')
-    df = pd.DataFrame(data)
-    if File == 'parquet':
-        final_filename = f'FINAL_{file_name}_with_{t_index:05}.parquet'
-        df.to_parquet(final_filename, index=False)
-    elif File == 'excel':
-        final_filename = f'FINAL_{file_name}_with_{t_index:05}.xlsx'
-        df.to_excel(final_filename, index=False, engine='openpyxl')
+        print(f'\n{"-" * 50}\n#Concluded! #{t_index:05} posts were scraped!\n{"-" * 50}\n\n\n\n')
+        df = pd.DataFrame(data)
+        if File == 'parquet':
+            final_filename = f'FINAL_{channel}_with_{t_index:05}.parquet'
+            df.to_parquet(final_filename, index=False)
+        elif File == 'excel':
+            final_filename = f'FINAL_{channel}_with_{t_index:05}.xlsx'
+            df.to_excel(final_filename, index=False, engine='openpyxl')
 
-data = []  # List to store scraped data
-t_index = 0  # Tracker for the number of messages processed
 start_time = time.time()  # Record the start time for the scraping session
 
 if __name__ == "__main__":
-    asyncio.run(scrape(File, channels, date_min, date_max, key_search, max_t_index, time_limit, t_index, start_time, data))
+    asyncio.run(scrape(File, channels, date_min, date_max, key_search, start_time))
