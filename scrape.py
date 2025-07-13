@@ -20,14 +20,14 @@ from telethon.sync import TelegramClient
 
 # Setup / change only the first time you use it
 # @markdown **1.1.** Your Telegram account username (just 'abc123', not '@'):
-username = 'XXX' # @param {type:"string"}
+username = 'floral_fading' # @param {type:"string"}
 # @markdown **1.2.** Your Telegram account phone number (ex: '+5511999999999'):
 phone = 'XXX' # @param {type:"string"}
 # @markdown **1.3.** Your API ID, it can be only generated from https://my.telegram.org/apps:
 api_id = 'XXX' # @param {type:"string"}
 # @markdown **1.4.** Your API hash, also from https://my.telegram.org/apps:
 api_hash = 'XXX' # @param {type:"string"}
-channels = "@XXX" # @param {type:"string"}
+channels = "@XXX, @XXX" # @param {type:"string"}
 channels = [channel.strip() for channel in channels.split(",")]
 
 # @markdown **2.2.** Here you can select the `time window` you would like to extract data from the listed communities:
