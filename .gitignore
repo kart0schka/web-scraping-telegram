@@ -1,8 +1,6 @@
-documents_with_topics.csv
-korpus.parquet
-messages_with_urls.csv
+# Ignore data files
+bertopic_model
 *.parquet
 *.xlsx
 *.png
-venv/
 *.csv
